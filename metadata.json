@@ -1,0 +1,8 @@
+{
+  "name": "Nếu Con Là Mẹ Trong Một Ngày - Hành Trình Thấu Hiểu & Yêu Thương 20/10",
+  "description": "Ứng dụng học tập trải nghiệm Ngữ Văn 6 chào mừng 20/10 với giọng đọc Leda AI miền Bắc Việt Nam, đồng hồ thời gian phép thuật và thiệp tri ân.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
