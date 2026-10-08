@@ -710,26 +710,66 @@ function handleRequest(e) {
 
       localStorage.setItem('applet_sheet_script_url', finalUrl);
 
-      const res = await fetch('/api/submit-sheet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let submitSuccess = false;
+      let errorMsg = '';
 
-      const data = await res.json();
-      if (res.ok && data.status !== 'error') {
+      // Thử gửi qua server backend proxy trước (nếu có server chạy)
+      try {
+        const res = await fetch('/api/submit-sheet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status !== 'error') {
+            submitSuccess = true;
+          } else if (data.isPermissionError) {
+            setTestResult({
+              ok: false,
+              msg: data.message || 'Lỗi 403: Google Apps Script yêu cầu quyền "Bất kỳ ai" (Anyone).',
+              isPerm: true,
+            });
+            showToast('LỖI QUYỀN TRUY CẬP 403', 'Cần chọn "Ai có quyền truy cập: Bất kỳ ai" trong Apps Script Deploy!', '⚠️');
+            return;
+          } else {
+            errorMsg = data.error || data.message;
+          }
+        }
+      } catch {
+        // Server proxy không khả dụng (ví dụ khi deploy frontend tĩnh lên Vercel)
+      }
+
+      // Nếu backend proxy không phản hồi (ví dụ deploy tĩnh trên Vercel/Netlify), tự động gửi trực tiếp từ client (mode: no-cors)
+      if (!submitSuccess) {
+        try {
+          const queryParams = new URLSearchParams({
+            hoVaTen: payload.hoVaTen,
+            to: payload.to,
+            lop: payload.lop,
+            thoiGian: payload.thoiGian,
+            diem: String(payload.diem),
+          });
+          const directUrl = `${finalUrl}${finalUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
+          await fetch(directUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload),
+          });
+          submitSuccess = true;
+        } catch (directErr: any) {
+          errorMsg = directErr?.message || errorMsg;
+        }
+      }
+
+      if (submitSuccess) {
         showToast('NỘP BÀI THÀNH CÔNG', `Đã lưu kết quả của ${studentSubmitForm.hoVaTen} vào Google Sheets 'Mật mã'!`, '✅');
         sfx.playFanfare();
         setIsSheetModalOpen(false);
-      } else if (data.isPermissionError) {
-        setTestResult({
-          ok: false,
-          msg: data.message || 'Lỗi 403: Google Apps Script yêu cầu quyền "Bất kỳ ai" (Anyone).',
-          isPerm: true,
-        });
-        showToast('LỖI QUYỀN TRUY CẬP 403', 'Cần chọn "Ai có quyền truy cập: Bất kỳ ai" trong Apps Script Deploy!', '⚠️');
       } else {
-        showToast('LỖI GỬI DỮ LIỆU', data.error || data.message || 'Không thể lưu vào Google Sheets', '❌');
+        showToast('LỖI GỬI DỮ LIỆU', errorMsg || 'Không thể lưu vào Google Sheets. Vui lòng kiểm tra lại URL Web App.', '❌');
       }
     } catch (err: any) {
       showToast('LỖI KẾT NỐI', err?.message || 'Lỗi kết nối máy chủ', '❌');
